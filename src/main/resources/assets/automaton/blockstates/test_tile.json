@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "automaton:block/test_model"
+    }
+  }
+}

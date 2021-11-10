@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 public interface IMultiblockAttachable<T extends TileEntity> {
 
     TransferController<T> getController();
-    void setController(@Nullable TransferController<T> controller);
+    void setController(@Nullable TransferController<?> controller);
 
+    void createController();
 }

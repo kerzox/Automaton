@@ -2,22 +2,34 @@ package mod.kerzox.automaton.common.util;
 
 import net.minecraft.tileentity.TileEntity;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+
+import static mod.kerzox.automaton.Automaton.toTick;
 
 public interface IRemovableTick {
 
-    Set<TileEntity> toRemove = new HashSet<>();
-    Set<TileEntity> toTick = new HashSet<>();
+    Set<IRemovableTick> disabled = new HashSet<>();
 
-    static void remove(TileEntity te) {
-        toRemove.add(te);
+
+    static void remove(IRemovableTick te) {
+        te.kill();
     }
+
+    void kill();
+
+
     static void add(TileEntity te) {
-        toTick.add(te);
+        if (te.getLevel() != null && !te.getLevel().isClientSide) {
+            toTick.add(te);
+        }
+        ((IRemovableTick)te).createInstance();
     }
+
+    boolean canTick();
+
+    void createInstance();
+
 
     /**
      * Tick function

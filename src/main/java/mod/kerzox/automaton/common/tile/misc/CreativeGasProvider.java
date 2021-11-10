@@ -21,7 +21,7 @@ public class CreativeGasProvider extends AutomatonTickableTile<CreativeGasProvid
 
     private final GasTank tank = new GasTank(Integer.MAX_VALUE);
     private final LazyOptional<GasTank> tankHandler = LazyOptional.of(() -> tank);
-    private FluidStack fluidStack = new FluidStack(ALL_FLUIDS.get(0).getStill().get(), 100);
+    private FluidStack fluidStack = new FluidStack(ALL_FLUIDS.get("steam").getFluid(), 100);
 
     public CreativeGasProvider(Block block) {
         super(block);

@@ -9,6 +9,7 @@ import mod.kerzox.automaton.common.block.PressurizedPipeBlock;
 import mod.kerzox.automaton.common.tile.PressurizedFluidTank;
 import mod.kerzox.automaton.common.tile.base.AutomatonTile;
 import mod.kerzox.automaton.common.tile.machines.Sawmill;
+import mod.kerzox.automaton.common.tile.machines.TestGroupTile;
 import mod.kerzox.automaton.common.tile.misc.CreativeGasProvider;
 import mod.kerzox.automaton.common.tile.transfer.pipes.PressurizedPipe;
 import net.minecraft.block.AbstractBlock;
@@ -42,6 +43,7 @@ public class AutomatonMaterials {
         public static Block creativeGasProvider;
         public static Block gasTank;
         public static Block sawMill;
+        public static Block testGroup;
     }
 
     public static class Pipes {
@@ -49,9 +51,9 @@ public class AutomatonMaterials {
     }
 
     public static void register() {
+        fluids();
         blocks();
         items();
-        fluids();
     }
 
     private static void blocks() {
@@ -68,6 +70,8 @@ public class AutomatonMaterials {
                 AbstractBlock.Properties.of(Material.METAL));
         Pipes.lowPressurePipe = new PressurizedPipeBlock("low_pressure_pipe", createTileEntity("low_pressure_pipe", buildType(
                 () -> new PressurizedPipe(Pipes.lowPressurePipe), ()-> Pipes.lowPressurePipe)), AbstractBlock.Properties.of(Material.METAL));
+        Tiles.testGroup = new AutomatonBlockEntity<>("test_tile", createTileEntity("test_tile", buildType(
+                () -> new TestGroupTile(Tiles.testGroup), ()-> Tiles.testGroup)), AbstractBlock.Properties.of(Material.METAL));
     }
 
     private static void items() {

@@ -1,9 +1,12 @@
 package mod.kerzox.automaton.common.tile.transfer.pipes;
 
+import mod.kerzox.automaton.Automaton;
 import mod.kerzox.automaton.common.capabilities.gas.GasTank;
 import mod.kerzox.automaton.common.multiblock.transfer.IMultiblockAttachable;
 import mod.kerzox.automaton.common.multiblock.transfer.TransferController;
 import mod.kerzox.automaton.common.multiblock.transfer.pipe.PipeController;
+import mod.kerzox.automaton.common.network.PacketHandler;
+import mod.kerzox.automaton.common.network.PipeConnectionData;
 import mod.kerzox.automaton.common.tile.base.AutomatonTile;
 import mod.kerzox.automaton.common.tile.misc.CreativeGasProvider;
 import mod.kerzox.automaton.common.util.IRemovableTick;
@@ -20,22 +23,44 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements IRemovableTick, IMultiblockAttachable<PressurizedPipe> {
 
+    private IRemovableTick ticking;
     private PipeController controller;
     private final Set<TileEntity> consumingTiles = new HashSet<>();
+    private final Set<Direction> connections = new HashSet<>();
 
     public PressurizedPipe(Block block) {
         super(block);
-        IRemovableTick.add(this);
     }
 
-    private void createController() {
+    @Override
+    public void createController() {
         this.controller = new PipeController(this);
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        IRemovableTick.add(this);
+        ticking = this;
+    }
+
+    @Override
+    public void kill() {
+        this.ticking = null;
+    }
+
+    @Override
+    public boolean canTick() {
+        return this.ticking != null;
+    }
+
+    @Override
+    public void createInstance() {
+        if (!canTick()) this.ticking = this;
     }
 
     @Override
@@ -49,10 +74,23 @@ public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements I
                         if (foundTile instanceof PressurizedPipe) {
                             PressurizedPipe pipe = (PressurizedPipe) foundTile;
                             if (pipe.hasController()) {
-                                if (!pipe.getController().getNetwork().contains(this)) {
-                                    // connect to that controller, remove ourself from special tick by returning true
-                                    pipe.getController().attach(this);
+                                if (hasController() && this.controller != pipe.getController()) {
+                                    // we need to merge.
+                                    int prev = this.controller.getNetwork().size();
+                                    Automaton.logger().info(prev+" : " + pipe.getController().getNetwork().size());
+
+                                    for (PressurizedPipe ourTiles : this.controller.getNetwork()) {
+                                        ourTiles.controller = pipe.controller;
+                                        pipe.getController().getNetwork().add(ourTiles);
+                                        Automaton.logger().info(String.format("Merging pipe"));
+                                    }
+
+                                    Automaton.logger().info(String.format("%d merging to %d\nCurrent size: %d, new size: %d",
+                                            this.controller.getId(), pipe.controller.getId(), prev, pipe.getController().getNetwork().size()));
                                     return true;
+                                }
+                                if (!pipe.getController().getNetwork().contains(this)) {
+                                    pipe.getController().attach(this);
                                 }
                             }
                         }
@@ -63,6 +101,8 @@ public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements I
             if (hasController()) {
                 if (this.controller.getControllerBlock() == this) {
                     this.controller.controllerTick();
+                } else {
+                    return true;
                 }
             }
         }
@@ -111,15 +151,27 @@ public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements I
     }
 
     @Override
-    public void setController(TransferController<PressurizedPipe> controller) {
+    public void setController(TransferController<?> controller) {
         this.controller = (PipeController) controller;
     }
 
     @Override
     public void setRemoved() {
-        if (this.controller != null && this.controller.getControllerBlock() == this) {
-            IRemovableTick.remove(this);
-            this.controller = null;
+        if (hasController()) {
+            if (this == this.controller.getControllerBlock()) {
+                this.controller.needsRemoval();
+                this.controller.controllerTick();
+//                for (PressurizedPipe pipe : new ArrayList<>(this.controller.getNetwork())) {
+//                    if (pipe != this.controller.getControllerBlock()) {
+//                        pipe.controller = null;
+//                        IRemovableTick.add(pipe);
+//                    }
+//                }
+//                this.controller.getNetwork().clear();
+//                this.controller = null;
+            } else {
+                this.controller.remove(this);
+            }
         }
         super.setRemoved();
     }
@@ -128,34 +180,54 @@ public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements I
         return consumingTiles;
     }
 
+    public Set<Direction> getConnections() {
+        return connections;
+    }
+
     public void doNeighbourConnection() {
         consumingTiles.clear();
-        Set<TileEntity> newConnections = new HashSet<>();
+        connections.clear();
+        Map<Direction, TileEntity> newConnections = new HashMap<>();
         for (Direction dir : Direction.values()) {
             TileEntity te = null;
             if (this.level != null) {
                 te = this.level.getBlockEntity(this.getBlockPos().relative(dir));
                 if (te != null) {
-                    findConsumers(newConnections, te);
-                    pipeConnections(te);
+                    findConsumers(newConnections, dir, te);
+                    pipeConnections(dir, te);
                 }
             }
         }
 
         // replace old consuming with the new connections
-        consumingTiles.addAll(newConnections);
+        consumingTiles.addAll(newConnections.values());
+        connections.addAll(newConnections.keySet());
 
         if (hasController()) this.controller.needsUpdate();
+
+        List<Byte> bytes = new ArrayList<>();
+        for (Direction dir : connections) {
+            bytes.add((byte) dir.ordinal());
+        }
+
+
+        PacketHandler.sendToServer(new PipeConnectionData(getBlockPos(), bytes));
     }
 
     /**
-     * Function to create new connections for the pipes blockstates
+     * Function to create new connections for the pipe
      * @param te tileentity
      */
 
-    private void pipeConnections(TileEntity te) {
+    private void pipeConnections(Direction dir, TileEntity te) {
         if (te instanceof PressurizedPipe) {
-
+            connections.add(dir);
+            return;
+        }
+        if (te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).isPresent()) {
+            if (te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).resolve().get() instanceof GasTank) {
+                connections.add(dir);
+            }
         }
     }
 
@@ -165,12 +237,13 @@ public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements I
      * @param te
      */
 
-    private void findConsumers(Set<TileEntity> newConnections, TileEntity te) {
-        if (!(te instanceof PressurizedPipe || te instanceof CreativeGasProvider)) {
+    private void findConsumers(Map<Direction, TileEntity> newConnections, Direction dir, TileEntity te) {
+        if (te instanceof CreativeGasProvider) return;
+        if (!(te instanceof PressurizedPipe)) {
             Optional<IFluidHandler> capability = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).resolve();
             if (capability.isPresent()) {
                 if (capability.get() instanceof GasTank) {
-                    newConnections.add(te);
+                    newConnections.put(dir, te);
                 }
             }
         }

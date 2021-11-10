@@ -1,0 +1,5 @@
+{
+  "loader": "forge:obj",
+  "model": "automaton:models/block/gas_pipe.obj",
+  "flip-v": true
+}

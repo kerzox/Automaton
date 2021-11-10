@@ -11,4 +11,5 @@ public interface IBlockIsEntity<T extends TileEntity> {
     static TileEntityType<? extends TileEntity> tileFromBlock(Block block) {
         return ((IBlockIsEntity<? extends TileEntity>) block).getEntityType();
     }
+
 }
