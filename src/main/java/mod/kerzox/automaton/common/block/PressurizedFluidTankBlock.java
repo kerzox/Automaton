@@ -1,11 +1,9 @@
 package mod.kerzox.automaton.common.block;
 
-import mod.kerzox.automaton.common.tile.PressurizedFluidTank;
 import mod.kerzox.automaton.common.tile.base.AutomatonTile;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BucketItem;
-import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ActionResultType;
@@ -29,15 +27,6 @@ public class PressurizedFluidTankBlock<T extends AutomatonTile<? super T>> exten
     public ActionResultType use(BlockState state, World world, BlockPos pos, PlayerEntity playerEntity, Hand hand, BlockRayTraceResult hit) {
         if (!world.isClientSide) {
             TileEntity te = world.getBlockEntity(pos);
-            if (te instanceof PressurizedFluidTank) {
-                if (playerEntity.getMainHandItem().getItem() instanceof BucketItem) {
-                    BucketItem bucket = (BucketItem) playerEntity.getMainHandItem().getItem();
-                    PressurizedFluidTank tank = (PressurizedFluidTank) te;
-                    tank.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).ifPresent(cap -> {
-                        cap.fill(new FluidStack(bucket.getFluid(), 30000), EXECUTE);
-                    });
-                }
-            }
         }
         return super.use(state, world, pos, playerEntity, hand, hit);
     }

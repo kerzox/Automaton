@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=east": { "model": "automaton:block/invisible_block"  },
+    "facing=south": { "model": "automaton:block/invisible_block" },
+    "facing=west": { "model": "automaton:block/invisible_block" },
+    "facing=north": { "model": "automaton:block/invisible_block" }
+  }
+}

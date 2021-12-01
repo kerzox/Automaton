@@ -64,10 +64,7 @@ public class PipeConnectionData {
         if (Minecraft.getInstance().level != null) {
             TileEntity te = Minecraft.getInstance().level.getBlockEntity(packet.pos);
             if (te instanceof PressurizedPipe) {
-                ((PressurizedPipe) te).getConnections().clear();
-                for (byte b : packet.data) {
-                    ((PressurizedPipe) te).getConnections().add(Direction.values()[b]);
-                }
+
             }
         }
     }

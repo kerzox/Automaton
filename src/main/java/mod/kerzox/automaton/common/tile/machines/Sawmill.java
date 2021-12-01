@@ -1,7 +1,10 @@
 package mod.kerzox.automaton.common.tile.machines;
 
-import mod.kerzox.automaton.common.capabilities.gas.GasConsumer;
+import mod.kerzox.automaton.Automaton;
+import mod.kerzox.automaton.common.tile.base.AutomatonFactory;
 import mod.kerzox.automaton.common.tile.base.AutomatonTickableTile;
+import mod.kerzox.automaton.common.util.FactoryTile;
+import mod.kerzox.automaton.common.util.FactoryType;
 import net.minecraft.block.Block;
 import net.minecraft.util.Direction;
 import net.minecraftforge.common.capabilities.Capability;
@@ -13,21 +16,10 @@ import javax.annotation.Nullable;
 
 import static mod.kerzox.automaton.registry.FluidRegistrar.ALL_FLUIDS;
 
-public class Sawmill extends AutomatonTickableTile<Sawmill> {
+public class Sawmill extends AutomatonFactory<Sawmill> {
 
-    private final GasConsumer tank = new GasConsumer(10000, this, ALL_FLUIDS.get("steam").getFluid());
-    private final LazyOptional<GasConsumer> gasHandler = LazyOptional.of(() -> tank);
-
-    public Sawmill(Block block) {
-        super(block);
+    public Sawmill(Block block, FactoryType type) {
+        super(block, type);
     }
 
-    @Nonnull
-    @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
-        if (cap == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
-            return gasHandler.cast();
-        }
-        return super.getCapability(cap, side);
-    }
 }

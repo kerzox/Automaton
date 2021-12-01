@@ -21,15 +21,14 @@ public interface IRemovableTick {
 
     static void add(TileEntity te) {
         if (te.getLevel() != null && !te.getLevel().isClientSide) {
-            toTick.add(te);
+            if (!toTick.contains(te)) toTick.add(te);
         }
-        ((IRemovableTick)te).createInstance();
+        ((IRemovableTick)te).setTicking(true);
     }
 
     boolean canTick();
 
-    void createInstance();
-
+    void setTicking(boolean bool);
 
     /**
      * Tick function

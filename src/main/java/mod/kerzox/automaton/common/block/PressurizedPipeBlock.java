@@ -1,29 +1,26 @@
 package mod.kerzox.automaton.common.block;
 
+import com.google.common.graph.EndpointPair;
 import mod.kerzox.automaton.Automaton;
-import mod.kerzox.automaton.common.multiblock.transfer.TransferController;
-import mod.kerzox.automaton.common.tile.PressurizedFluidTank;
-import mod.kerzox.automaton.common.tile.base.AutomatonTile;
+import mod.kerzox.automaton.common.multiblock.transfer.PipeNetwork;
+import mod.kerzox.automaton.common.tile.transfer.TransferTile;
 import mod.kerzox.automaton.common.tile.transfer.pipes.PressurizedPipe;
+import mod.kerzox.automaton.common.util.INeighbourUpdatable;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
-import net.minecraft.item.BucketItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.state.StateContainer;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.shapes.IBooleanFunction;
-import net.minecraft.util.math.shapes.ISelectionContext;
 import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraft.util.text.StringTextComponent;
@@ -31,15 +28,10 @@ import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fml.RegistryObject;
 
 import javax.annotation.Nullable;
-import java.util.Set;
 import java.util.stream.Stream;
-
-import static net.minecraftforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE;
 
 public class PressurizedPipeBlock extends AutomatonBlockEntity<PressurizedPipe> {
 
@@ -70,9 +62,22 @@ public class PressurizedPipeBlock extends AutomatonBlockEntity<PressurizedPipe> 
             if (te instanceof PressurizedPipe) {
                 PressurizedPipe pipe = (PressurizedPipe) te;
                 if (hand == Hand.MAIN_HAND) {
-                    if (pipe.hasController()) {
-                        playerEntity.sendMessage(new StringTextComponent("Controller ID: " + pipe.getController().getId() + "\nPipe length: "  +pipe.getController().getNetwork().size() +"\nPos: " + pipe.getBlockPos().toShortString()), playerEntity.getUUID());
+                    if (pipe.getNetwork() != null) {
+                        playerEntity.sendMessage(new StringTextComponent("Controller: " + pipe.getNetwork()  + "\nLength: " + pipe.getNetwork().tiles().size()), playerEntity.getUUID());
                     }
+//                        playerEntity.sendMessage(new StringTextComponent("EDGES:"), playerEntity.getUUID());
+//                        for (EndpointPair<TransferTile> edge : pipe.getNetwork().getGraph().edges()) {
+//                            playerEntity.sendMessage(new StringTextComponent(edge.nodeU().getBlockPos().toShortString() + " : " + edge.nodeV().getBlockPos().toShortString()), playerEntity.getUUID());
+//                        }
+//                        playerEntity.sendMessage(new StringTextComponent("NODES:"), playerEntity.getUUID());
+//                        playerEntity.sendMessage(new StringTextComponent("size: " + pipe.getNetwork().getGraph().nodes().size()), playerEntity.getUUID());
+//                        for (TransferTile node : pipe.getNetwork().getGraph().nodes()) {
+//                            playerEntity.sendMessage(new StringTextComponent(node.getBlockState().getBlock().getRegistryName().toString()), playerEntity.getUUID());
+//                        }
+//                        playerEntity.sendMessage(new StringTextComponent(String.format("Controller: %sPipe length: %d\nMaster tile: %s",
+//                                pipe.getNetwork().toString(), + pipe.getNetwork().getGraph().nodes().size(),
+//                                pipe.getNetwork().getControllerTile() == pipe ? "MASTER" : pipe.getNetwork().getControllerTile().getBlockPos().toShortString())), playerEntity.getUUID());
+//                    }
                 }
             }
         }
@@ -85,18 +90,17 @@ public class PressurizedPipeBlock extends AutomatonBlockEntity<PressurizedPipe> 
         TileEntity te = worldIn.getBlockEntity(pos);
         if (te instanceof PressurizedPipe) {
             PressurizedPipe pipe = (PressurizedPipe) te;
-            pipe.doNeighbourConnection();
+            pipe.updateByNeighbours(state, worldIn.getBlockState(pos), pos, null);
         }
     }
 
     @Override
     public void neighborChanged(BlockState state, World world, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
         super.neighborChanged(state, world, pos, block, fromPos, isMoving);
-        TileEntity te = world.getBlockEntity(pos);
-        if (te instanceof PressurizedPipe) {
-            PressurizedPipe pipe = (PressurizedPipe) te;
-            pipe.doNeighbourConnection();
-        }
+//        TileEntity te = world.getBlockEntity(pos);
+//        if (te instanceof INeighbourUpdatable) {
+//            ((INeighbourUpdatable) te).updateByNeighbours(state, world.getBlockState(fromPos), pos, fromPos);
+//        }
 
     }
 
@@ -109,24 +113,6 @@ public class PressurizedPipeBlock extends AutomatonBlockEntity<PressurizedPipe> 
     @Override
     public BlockState getStateForPlacement(BlockItemUseContext context) {
         return defaultBlockState().setValue(BlockStateProperties.FACING, context.getNearestLookingDirection().getOpposite());
-    }
-
-    @Override
-    public VoxelShape getShape(BlockState state, IBlockReader reader, BlockPos pos, ISelectionContext context) {
-
-        VoxelShape base = Block.box(5, 5, 5, 11, 11, 11);
-
-        TileEntity te = reader.getBlockEntity(pos);
-        if (te instanceof PressurizedPipe) {
-            Set<Direction> directions = ((PressurizedPipe) te).getConnections();
-            if (!directions.isEmpty()) {
-                VoxelShape connector = Block.box(5, 5, 0, 11, 11, 11);
-                VoxelShape connection = Block.box(12, 12, 0, 10, 12, 1);
-                connector = VoxelShapes.join(connector, connection, IBooleanFunction.OR);
-                return VoxelShapes.join(base, connector, IBooleanFunction.OR);
-            }
-        }
-        return base;
     }
 
     @OnlyIn(Dist.CLIENT)

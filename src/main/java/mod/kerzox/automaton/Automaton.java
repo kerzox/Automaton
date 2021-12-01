@@ -1,14 +1,17 @@
 package mod.kerzox.automaton;
 
-import com.google.common.collect.Queues;
+import mod.kerzox.automaton.client.render.ter.AssemblyRobotRender;
+import mod.kerzox.automaton.client.render.ter.ConveyorBeltRender;
 import mod.kerzox.automaton.client.render.ter.PressurizedPipeRender;
-import mod.kerzox.automaton.client.render.ter.TestGroupTileRender;
 import mod.kerzox.automaton.common.commands.AutomatonCommand;
 import mod.kerzox.automaton.common.events.ModBusEvents;
+import mod.kerzox.automaton.common.multiblock.transfer.PipeNetwork;
 import mod.kerzox.automaton.common.network.PacketHandler;
-import mod.kerzox.automaton.common.tile.machines.TestGroupTile;
+import mod.kerzox.automaton.common.tile.machines.assembly.AssemblyRobot;
+import mod.kerzox.automaton.common.tile.transfer.conveyor.ConveyorBelt;
 import mod.kerzox.automaton.common.tile.transfer.pipes.PressurizedPipe;
 import mod.kerzox.automaton.common.util.IBlockIsEntity;
+import mod.kerzox.automaton.common.util.IModifiableTick;
 import mod.kerzox.automaton.common.util.IRemovableTick;
 import mod.kerzox.automaton.registry.AutomatonMaterials;
 import mod.kerzox.automaton.registry.AutomatonRegistry;
@@ -21,7 +24,6 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -32,10 +34,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
-
-import static mod.kerzox.automaton.client.render.ter.PressurizedPipeRender.PIPE_RESOURCE;
 
 @Mod("automaton")
 public class Automaton
@@ -44,6 +43,7 @@ public class Automaton
     private static final Logger LOGGER = LogManager.getLogger();
     private static long tick = 0;
     public static Set<TileEntity> toTick = new HashSet<>();
+    public static Set<PipeNetwork> networkTick = new HashSet<>();
 
     public Automaton() {
         PacketHandler.register();
@@ -60,9 +60,13 @@ public class Automaton
     }
 
     private void clientLoad(final FMLClientSetupEvent event) {
-        ClientRegistry.bindTileEntityRenderer((TileEntityType<TestGroupTile>) IBlockIsEntity.tileFromBlock(AutomatonMaterials.Tiles.testGroup), TestGroupTileRender::new);
         ClientRegistry.bindTileEntityRenderer((TileEntityType<PressurizedPipe>) IBlockIsEntity.tileFromBlock(AutomatonMaterials.Pipes.lowPressurePipe), PressurizedPipeRender::new);
+        ClientRegistry.bindTileEntityRenderer((TileEntityType<ConveyorBelt>) IBlockIsEntity.tileFromBlock(AutomatonMaterials.Tiles.conveyorBelt), ConveyorBeltRender::new);
+        ClientRegistry.bindTileEntityRenderer((TileEntityType<AssemblyRobot>) IBlockIsEntity.tileFromBlock(AutomatonMaterials.Tiles.assemblyRobot), AssemblyRobotRender::new);
+
         RenderTypeLookup.setRenderLayer(AutomatonMaterials.Pipes.lowPressurePipe, RenderType.cutout());
+        RenderTypeLookup.setRenderLayer(AutomatonMaterials.Tiles.conveyorBelt, RenderType.cutout());
+        RenderTypeLookup.setRenderLayer(AutomatonMaterials.Tiles.assemblyRobot, RenderType.cutout());
     }
 
     public static Logger logger() {
@@ -99,6 +103,12 @@ public class Automaton
         if (e.phase != TickEvent.Phase.END) {
             return;
         }
+        if (!networkTick.isEmpty()) {
+            networkTick.removeIf(net -> !net.tick());
+        }
+        if (!IModifiableTick.tickingEntities.isEmpty()) {
+            IModifiableTick.tickingEntities.removeIf(net -> !net.doTick());
+        }
         if (!toTick.isEmpty()) {
             for (TileEntity te : new ArrayList<TileEntity>(toTick)) {
                 IRemovableTick teR = (IRemovableTick) te;
@@ -108,7 +118,6 @@ public class Automaton
                 }
                 if (!teR.canTick()) {
                     toTick.remove(te);
-                    teR.kill();
                 }
             }
         }

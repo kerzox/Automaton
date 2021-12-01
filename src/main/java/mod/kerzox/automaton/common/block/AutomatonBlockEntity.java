@@ -1,20 +1,25 @@
 package mod.kerzox.automaton.common.block;
 
-import mod.kerzox.automaton.Automaton;
-import mod.kerzox.automaton.common.capabilities.gas.GasConsumer;
-import mod.kerzox.automaton.common.tile.PressurizedFluidTank;
+import mod.kerzox.automaton.common.capabilities.gas.GasCapability;
+import mod.kerzox.automaton.common.capabilities.gas.IGasHandler;
 import mod.kerzox.automaton.common.tile.base.AutomatonTile;
 import mod.kerzox.automaton.common.tile.machines.Sawmill;
 import mod.kerzox.automaton.common.util.IBlockIsEntity;
-import net.minecraft.block.AbstractBlock;
+import mod.kerzox.automaton.common.util.INeighbourUpdatable;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.HorizontalBlock;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BucketItem;
+import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.Items;
+import net.minecraft.state.DirectionProperty;
+import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Mirror;
+import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.text.StringTextComponent;
@@ -31,6 +36,7 @@ import static net.minecraftforge.fluids.capability.IFluidHandler.FluidAction.EXE
 
 public class AutomatonBlockEntity<T extends AutomatonTile<? super T>> extends AutomatonBlockBase implements IBlockIsEntity<T> {
 
+    public static final DirectionProperty FACING = HorizontalBlock.FACING;
     private RegistryObject<TileEntityType<T>> tileType;
 
     public AutomatonBlockEntity(String registryName, RegistryObject<TileEntityType<T>> type, Properties properties) {
@@ -42,24 +48,46 @@ public class AutomatonBlockEntity<T extends AutomatonTile<? super T>> extends Au
     public ActionResultType use(BlockState state, World world, BlockPos pos, PlayerEntity playerEntity, Hand hand, BlockRayTraceResult hit) {
         if (!world.isClientSide) {
             TileEntity te = world.getBlockEntity(pos);
-            if (te instanceof Sawmill) {
-                if (hand == Hand.MAIN_HAND) {
-                    Sawmill sm = (Sawmill) te;
-                    if (playerEntity.getMainHandItem().getItem() == Items.STICK) {
-                        te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).ifPresent(cap -> {
-                            GasConsumer consumer = (GasConsumer) cap;
-                            playerEntity.sendMessage(new StringTextComponent(String.format("Current fluid: %s amount: %d", consumer.getFluid().getFluid().getRegistryName(), consumer.getFluidAmount())), playerEntity.getUUID());
-                        });
-                        return super.use(state, world, pos, playerEntity, hand, hit);
-                    }
-                    te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).ifPresent(cap -> {
-                        cap.fill(new FluidStack(ALL_FLUIDS.get(0).getStill().get(), 1000), EXECUTE);
-                    });
+            if (hand == Hand.MAIN_HAND) {
+                if (te != null) {
+                 playerEntity.sendMessage(new StringTextComponent("Fluid amount: " + te.getCapability(GasCapability.GAS).map(IGasHandler::getStorage).orElse(0)), playerEntity.getUUID());
                 }
             }
         }
         return super.use(state, world, pos, playerEntity, hand, hit);
     }
+
+    @Override
+    public void neighborChanged(BlockState state, World world, BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+        super.neighborChanged(state, world, pos, block, fromPos, isMoving);
+        TileEntity te = world.getBlockEntity(pos);
+        if (te instanceof INeighbourUpdatable) {
+            ((INeighbourUpdatable) te).updateByNeighbours(state, world.getBlockState(fromPos), pos, fromPos);
+        }
+    }
+
+
+    @Nullable
+    @Override
+    public BlockState getStateForPlacement(BlockItemUseContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection());
+    }
+
+    @Override
+    public BlockState rotate(BlockState state, Rotation p_185499_2_) {
+        return state.setValue(FACING, p_185499_2_.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    public BlockState mirror(BlockState p_185471_1_, Mirror p_185471_2_) {
+        return p_185471_1_.rotate(p_185471_2_.getRotation(p_185471_1_.getValue(FACING)));
+    }
+    @Override
+    protected void createBlockStateDefinition(StateContainer.Builder<Block, BlockState> p_206840_1_) {
+        super.createBlockStateDefinition(p_206840_1_);
+        p_206840_1_.add(FACING);
+    }
+
 
     @Nullable
     @Override

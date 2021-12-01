@@ -2,6 +2,9 @@
   "variants": {
     "": {
       "model": "automaton:block/test_model"
+    },
+    "visibility": {
+      "main": "true"
     }
   }
 }

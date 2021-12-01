@@ -1,15 +1,9 @@
 package mod.kerzox.automaton.common.tile.transfer.pipes;
 
-import mod.kerzox.automaton.Automaton;
-import mod.kerzox.automaton.common.capabilities.gas.GasTank;
-import mod.kerzox.automaton.common.multiblock.transfer.IMultiblockAttachable;
-import mod.kerzox.automaton.common.multiblock.transfer.TransferController;
-import mod.kerzox.automaton.common.multiblock.transfer.pipe.PipeController;
-import mod.kerzox.automaton.common.network.PacketHandler;
-import mod.kerzox.automaton.common.network.PipeConnectionData;
-import mod.kerzox.automaton.common.tile.base.AutomatonTile;
-import mod.kerzox.automaton.common.tile.misc.CreativeGasProvider;
-import mod.kerzox.automaton.common.util.IRemovableTick;
+import mod.kerzox.automaton.common.multiblock.transfer.PipeNetwork;
+import mod.kerzox.automaton.common.multiblock.transfer.fluid.FluidPipeNetwork;
+import mod.kerzox.automaton.common.tile.transfer.TransferTile;
+import mod.kerzox.automaton.common.util.INeighbourUpdatable;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.nbt.CompoundNBT;
@@ -18,234 +12,118 @@ import net.minecraft.util.Direction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 
-public class PressurizedPipe extends AutomatonTile<PressurizedPipe> implements IRemovableTick, IMultiblockAttachable<PressurizedPipe> {
+public class PressurizedPipe extends TransferTile implements INeighbourUpdatable {
 
-    private IRemovableTick ticking;
-    private PipeController controller;
-    private final Set<TileEntity> consumingTiles = new HashSet<>();
-    private final Set<Direction> connections = new HashSet<>();
-
+    private Map<Direction, TileEntity> connectedTiles = new HashMap<>();
     public PressurizedPipe(Block block) {
         super(block);
     }
 
-    @Override
-    public void createController() {
-        this.controller = new PipeController(this);
+    public FluidPipeNetwork createNetwork() {
+        return new FluidPipeNetwork(this);
     }
 
     @Override
-    public void onLoad() {
-        super.onLoad();
-        IRemovableTick.add(this);
-        ticking = this;
+    public void setNetwork(PipeNetwork network) {
+        this.network = network;
     }
 
     @Override
-    public void kill() {
-        this.ticking = null;
+    public void updateByNeighbours(BlockState state, BlockState neighbourState, BlockPos pos, BlockPos neighbour) {
+        this.connectedTiles.clear();
+        this.connectedPipes.clear();
+        for (Direction dir : Direction.values()) {
+            TileEntity te = level.getBlockEntity(pos.relative(dir));
+            if (te instanceof PressurizedPipe) {
+                this.connectedPipes.put(dir, (PressurizedPipe) te);
+            }
+            if (te != null && !(te instanceof PressurizedPipe)) {
+                this.connectedTiles.put(dir, te);
+            }
+        }
+        attemptToConnectOrBuildNetwork();
     }
 
-    @Override
-    public boolean canTick() {
-        return this.ticking != null;
-    }
-
-    @Override
-    public void createInstance() {
-        if (!canTick()) this.ticking = this;
-    }
-
-    @Override
-    public boolean tick() {
-        if (getLevel() != null) { // should never be null
-            if (!getLevel().isClientSide) {
-                for (Direction dir : Direction.values()) {
-                    BlockPos newPos = getBlockPos().relative(dir);
-                    TileEntity foundTile = getLevel().getBlockEntity(newPos);
-                    if (foundTile != null) {
-                        if (foundTile instanceof PressurizedPipe) {
-                            PressurizedPipe pipe = (PressurizedPipe) foundTile;
-                            if (pipe.hasController()) {
-                                if (hasController() && this.controller != pipe.getController()) {
-                                    // we need to merge.
-                                    int prev = this.controller.getNetwork().size();
-                                    Automaton.logger().info(prev+" : " + pipe.getController().getNetwork().size());
-
-                                    for (PressurizedPipe ourTiles : this.controller.getNetwork()) {
-                                        ourTiles.controller = pipe.controller;
-                                        pipe.getController().getNetwork().add(ourTiles);
-                                        Automaton.logger().info(String.format("Merging pipe"));
-                                    }
-
-                                    Automaton.logger().info(String.format("%d merging to %d\nCurrent size: %d, new size: %d",
-                                            this.controller.getId(), pipe.controller.getId(), prev, pipe.getController().getNetwork().size()));
-                                    return true;
-                                }
-                                if (!pipe.getController().getNetwork().contains(this)) {
-                                    pipe.getController().attach(this);
-                                }
-                            }
-                        }
+    private void attemptToConnectOrBuildNetwork() {
+        if (!level.isClientSide) {
+            for (Direction dir : Direction.values()) {
+                TileEntity te = level.getBlockEntity(getBlockPos().relative(dir));
+                if (te instanceof PressurizedPipe) {
+                    if (((PressurizedPipe) te).getNetwork() != null) {
+                        ((PressurizedPipe) te).getNetwork().addToNetwork(this);
+                        return;
                     }
                 }
-                if (!hasController()) createController();
             }
-            if (hasController()) {
-                if (this.controller.getControllerBlock() == this) {
-                    this.controller.controllerTick();
-                } else {
-                    return true;
-                }
+            if (this.network != null) {
+                this.getNetwork().findGasTiles(getConnectedTiles());
+                return;
             }
+            this.network = createNetwork();
         }
-        return false;
-    }
-
-    public boolean hasController() {
-        return controller != null;
     }
 
     @Override
-    public void load(BlockState state, CompoundNBT nbt) {
-        if (nbt.contains("controllerData")) {
-            if (nbt.getBoolean("controller")) {
-                createController();
-                this.controller.getCache().read(nbt.getCompound("ControllerData"));
+    public void setRemoved() {
+        super.setRemoved();
+        if (!level.isClientSide) {
+            if (this.network != null) {
+                this.network.deconstruct(this);
             }
         }
-        super.load(state, nbt);
     }
 
     @Override
-    public CompoundNBT save(CompoundNBT nbt) {
-        if (hasController()) {
-            if (this.controller.getControllerBlock() != this) {
-                nbt.putBoolean("controller", false);
-            }
-            nbt.putBoolean("controller", true);
-            this.controller.getCache().save(nbt);
+    public void deserializeNBT(BlockState state, CompoundNBT nbt) {
+        super.deserializeNBT(state, nbt);
+        if (nbt.contains("network")) {
+
         }
-        return super.save(nbt);
+    }
+
+    @Override
+    public CompoundNBT serializeNBT() {
+        CompoundNBT nbt = super.serializeNBT();
+        if (this.network != null) {
+            nbt.put("network", this.network.save());
+            if (this.cachedControllerData == null) cachedControllerData = new CompoundNBT();
+            cachedControllerData.put("cache", this.network.save());
+        }
+        return nbt;
     }
 
     @Nonnull
     @Override
     public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
-        if (cap == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
-            return hasController() ? this.controller.getCapability(cap, side) : super.getCapability(cap, side);
-        }
-        return super.getCapability(cap, side);
+        return this.network != null ? this.network.getCapability(cap, side) : super.getCapability(cap, side);
+    }
+
+    public Map<Direction, TileEntity> getConnectedTiles() {
+        return connectedTiles;
     }
 
     @Override
-    public PipeController getController() {
-        return controller;
+    public void load(BlockState p_230337_1_, CompoundNBT p_230337_2_) {
+        super.load(p_230337_1_, p_230337_2_);
     }
 
     @Override
-    public void setController(TransferController<?> controller) {
-        this.controller = (PipeController) controller;
+    public CompoundNBT save(CompoundNBT pCompound) {
+        return super.save(pCompound);
     }
 
     @Override
-    public void setRemoved() {
-        if (hasController()) {
-            if (this == this.controller.getControllerBlock()) {
-                this.controller.needsRemoval();
-                this.controller.controllerTick();
-//                for (PressurizedPipe pipe : new ArrayList<>(this.controller.getNetwork())) {
-//                    if (pipe != this.controller.getControllerBlock()) {
-//                        pipe.controller = null;
-//                        IRemovableTick.add(pipe);
-//                    }
-//                }
-//                this.controller.getNetwork().clear();
-//                this.controller = null;
-            } else {
-                this.controller.remove(this);
-            }
-        }
-        super.setRemoved();
+    public FluidPipeNetwork getNetwork() {
+        return (FluidPipeNetwork) network;
     }
 
-    public Set<TileEntity> getConsumingTiles() {
-        return consumingTiles;
-    }
-
-    public Set<Direction> getConnections() {
-        return connections;
-    }
-
-    public void doNeighbourConnection() {
-        consumingTiles.clear();
-        connections.clear();
-        Map<Direction, TileEntity> newConnections = new HashMap<>();
-        for (Direction dir : Direction.values()) {
-            TileEntity te = null;
-            if (this.level != null) {
-                te = this.level.getBlockEntity(this.getBlockPos().relative(dir));
-                if (te != null) {
-                    findConsumers(newConnections, dir, te);
-                    pipeConnections(dir, te);
-                }
-            }
-        }
-
-        // replace old consuming with the new connections
-        consumingTiles.addAll(newConnections.values());
-        connections.addAll(newConnections.keySet());
-
-        if (hasController()) this.controller.needsUpdate();
-
-        List<Byte> bytes = new ArrayList<>();
-        for (Direction dir : connections) {
-            bytes.add((byte) dir.ordinal());
-        }
-
-
-        PacketHandler.sendToServer(new PipeConnectionData(getBlockPos(), bytes));
-    }
-
-    /**
-     * Function to create new connections for the pipe
-     * @param te tileentity
-     */
-
-    private void pipeConnections(Direction dir, TileEntity te) {
-        if (te instanceof PressurizedPipe) {
-            connections.add(dir);
-            return;
-        }
-        if (te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).isPresent()) {
-            if (te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).resolve().get() instanceof GasTank) {
-                connections.add(dir);
-            }
-        }
-    }
-
-    /**
-     * Find consuming blocks to add to the network
-     * @param newConnections
-     * @param te
-     */
-
-    private void findConsumers(Map<Direction, TileEntity> newConnections, Direction dir, TileEntity te) {
-        if (te instanceof CreativeGasProvider) return;
-        if (!(te instanceof PressurizedPipe)) {
-            Optional<IFluidHandler> capability = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).resolve();
-            if (capability.isPresent()) {
-                if (capability.get() instanceof GasTank) {
-                    newConnections.put(dir, te);
-                }
-            }
-        }
+    @Override
+    public Map<Direction, TransferTile> getConnectedPipes() {
+        return connectedPipes;
     }
 }

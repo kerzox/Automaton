@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=east": { "model": "automaton:block/conveyor_belt_model", "y": 90  },
+    "facing=south": { "model": "automaton:block/conveyor_belt_model", "y": 180 },
+    "facing=west": { "model": "automaton:block/conveyor_belt_model", "y": 270 },
+    "facing=north": { "model": "automaton:block/conveyor_belt_model", "y": 0 }
+  }
+}

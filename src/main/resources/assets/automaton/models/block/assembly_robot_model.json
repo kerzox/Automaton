@@ -1,0 +1,12 @@
+{
+  "loader": "automaton:obj",
+  "model": "automaton:models/block/assembly_robot.obj",
+  "block_model": "base",
+  "combinedGroups": [
+    ["base:base1", "base:pipe_input", "base:wood_back", "base:exhaust1", "base:pipe_back_angle", "base:rotator"],
+    ["bearing:b_bearing1", "bearing:b_bearing2", "bearing:arm1", "bearing:arm2"],
+    ["bearing_arm:arm_bearing", "bearing_arm:arm_bearing2", "bearing_arm:main_arm"],
+    ["hand:hand_bearing", "hand:hand_shaft", "hand:hand_backplate", "hand:hand_right_gripper", "hand:hand_left_gripper"]
+  ],
+  "flip-v": true
+}

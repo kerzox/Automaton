@@ -1,5 +1,7 @@
 {
   "loader": "automaton:obj",
-  "model": "automaton:models/block/test_grouped_block.obj",
+  "model": "automaton:models/block/test.obj",
   "flip-v": true
 }
+
+

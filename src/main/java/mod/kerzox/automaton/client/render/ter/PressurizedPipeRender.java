@@ -44,88 +44,88 @@ public class PressurizedPipeRender extends TileEntityRenderer<PressurizedPipe> {
         World world = tile.getLevel();
         BlockPos pos = tile.getBlockPos();
 
-        boolean isCorner = tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.SOUTH)
-                || tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.NORTH)
-                || tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.NORTH)
-                || tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.SOUTH);
+//        boolean isCorner = tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.SOUTH)
+//                || tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.NORTH)
+//                || tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.NORTH)
+//                || tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.SOUTH);
+//
+//        if (!isCorner) renderMainPipe(mStack, tile, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
+//        else drawCorner(mStack, tile, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
+//        Set<Direction> connections = tile.getConnections();
 
-        if (!isCorner) renderMainPipe(mStack, tile, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
-        else drawCorner(mStack, tile, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
-        Set<Direction> connections = tile.getConnections();
-
-        if (connections.size() >= 1) {
-            renderConnection(connections, mStack, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
-        }
+//        if (connections.size() >= 1) {
+//            renderConnection(connections, mStack, modelManager, buffer, dispatcher, pCombinedLight, pCombinedOverlay);
+//        }
 
     }
-
-    private void renderMainPipe(MatrixStack mStack, PressurizedPipe tile, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
-        mStack.pushPose();
-        mStack.translate(0.5, 0.5,0.5);
-
-        boolean invert = tile.getConnections().contains(Direction.EAST) || tile.getConnections().contains(Direction.WEST);
-        boolean goingUP = tile.getConnections().contains(Direction.UP) || tile.getConnections().contains(Direction.DOWN);
-
-        if (invert) mStack.mulPose(Vector3f.YP.rotationDegrees(270F));
-        else if (goingUP) mStack.mulPose(Vector3f.XP.rotationDegrees(90F));
-        MatrixStack.Entry currentMatrix = mStack.last();
-        IBakedModel model = modelManager.getModel(PIPE_RESOURCE);
-        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
-
-        float red = 255 / 255.0F;
-        float green = 255 / 255.0F;
-        float blue = 255 / 255.0F;
-
-        drawBlock(dispatcher, pCombinedLight, pCombinedOverlay, currentMatrix, model, vertexBuffer, red, green, blue);
-
-
-        mStack.popPose();
-    }
-
-    private void drawCorner(MatrixStack mStack, PressurizedPipe tile, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
-        mStack.pushPose();
-        mStack.translate(0.5, 0.5,0.5);
-        MatrixStack.Entry currentMatrix = mStack.last();
-        IBakedModel model = modelManager.getModel(PIPE_CORNER_TEST_RESOURCE);
-        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
-
-        if (tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.NORTH)) {
-            mStack.mulPose(Vector3f.YP.rotationDegrees(90));
-        }
-        if (tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.SOUTH)) {
-            mStack.mulPose(Vector3f.YP.rotationDegrees(180F));
-        }
-        if (tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.SOUTH)) {
-            mStack.mulPose(Vector3f.YN.rotationDegrees(90));
-        }
-
-        float red = 255 / 255.0F;
-        float green = 255 / 255.0F;
-        float blue = 255 / 255.0F;
-
-        drawBlock(dispatcher, pCombinedLight, pCombinedOverlay, currentMatrix, model, vertexBuffer, red, green, blue);
-        mStack.popPose();
-    }
-
-    private void renderConnection(Set<Direction> connectedTiles, MatrixStack mStack, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
-        mStack.pushPose();
-        //mStack.translate(0.5, 0.5,0.5);
-        IBakedModel model = modelManager.getModel(PIPE_CONNECTION_RESOURCE);
-        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
-
-        float red = 255 / 255.0F;
-        float green = 255 / 255.0F;
-        float blue = 255 / 255.0F;
-
-        for (Direction dir : connectedTiles) {
-            mStack.pushPose();
-//            mStack.translate(.47, 0, 0);
-            translateFromDirection(mStack, dir, dispatcher, pCombinedLight, pCombinedOverlay, model, vertexBuffer, red, green, blue);
-            mStack.popPose();
-        }
-
-        mStack.popPose();
-    }
+//
+//    private void renderMainPipe(MatrixStack mStack, PressurizedPipe tile, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
+//        mStack.pushPose();
+//        mStack.translate(0.5, 0.5,0.5);
+//
+//        boolean invert = tile.getConnections().contains(Direction.EAST) || tile.getConnections().contains(Direction.WEST);
+//        boolean goingUP = tile.getConnections().contains(Direction.UP) || tile.getConnections().contains(Direction.DOWN);
+//
+//        if (invert) mStack.mulPose(Vector3f.YP.rotationDegrees(270F));
+//        else if (goingUP) mStack.mulPose(Vector3f.XP.rotationDegrees(90F));
+//        MatrixStack.Entry currentMatrix = mStack.last();
+//        IBakedModel model = modelManager.getModel(PIPE_RESOURCE);
+//        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
+//
+//        float red = 255 / 255.0F;
+//        float green = 255 / 255.0F;
+//        float blue = 255 / 255.0F;
+//
+//        drawBlock(dispatcher, pCombinedLight, pCombinedOverlay, currentMatrix, model, vertexBuffer, red, green, blue);
+//
+//
+//        mStack.popPose();
+//    }
+//
+//    private void drawCorner(MatrixStack mStack, PressurizedPipe tile, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
+//        mStack.pushPose();
+//        mStack.translate(0.5, 0.5,0.5);
+//        MatrixStack.Entry currentMatrix = mStack.last();
+//        IBakedModel model = modelManager.getModel(PIPE_CORNER_TEST_RESOURCE);
+//        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
+//
+//        if (tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.NORTH)) {
+//            mStack.mulPose(Vector3f.YP.rotationDegrees(90));
+//        }
+//        if (tile.getConnections().contains(Direction.WEST) && tile.getConnections().contains(Direction.SOUTH)) {
+//            mStack.mulPose(Vector3f.YP.rotationDegrees(180F));
+//        }
+//        if (tile.getConnections().contains(Direction.EAST) && tile.getConnections().contains(Direction.SOUTH)) {
+//            mStack.mulPose(Vector3f.YN.rotationDegrees(90));
+//        }
+//
+//        float red = 255 / 255.0F;
+//        float green = 255 / 255.0F;
+//        float blue = 255 / 255.0F;
+//
+//        drawBlock(dispatcher, pCombinedLight, pCombinedOverlay, currentMatrix, model, vertexBuffer, red, green, blue);
+//        mStack.popPose();
+//    }
+//
+//    private void renderConnection(Set<Direction> connectedTiles, MatrixStack mStack, ModelManager modelManager, IRenderTypeBuffer buffer, BlockRendererDispatcher dispatcher, int pCombinedLight, int pCombinedOverlay) {
+//        mStack.pushPose();
+//        //mStack.translate(0.5, 0.5,0.5);
+//        IBakedModel model = modelManager.getModel(PIPE_CONNECTION_RESOURCE);
+//        IVertexBuilder vertexBuffer = buffer.getBuffer(RenderType.solid());
+//
+//        float red = 255 / 255.0F;
+//        float green = 255 / 255.0F;
+//        float blue = 255 / 255.0F;
+//
+//        for (Direction dir : connectedTiles) {
+//            mStack.pushPose();
+////            mStack.translate(.47, 0, 0);
+//            translateFromDirection(mStack, dir, dispatcher, pCombinedLight, pCombinedOverlay, model, vertexBuffer, red, green, blue);
+//            mStack.popPose();
+//        }
+//
+//        mStack.popPose();
+//    }
 
 //                mStack.mulPose(Vector3f.YN.rotationDegrees(270F));
 //            mStack.translate(-1, 0, 0);
